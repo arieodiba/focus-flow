@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Focus Flow</title>
+  <meta name="description" content="A Pomodoro timer with tasks, stats, custom durations, sounds and notifications.">
+  <meta name="theme-color" content="#b7472a">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    // Apply the saved theme before first paint so there is no light/dark flash.
+    try {
+      var s = JSON.parse(localStorage.getItem('ff.settings') || '{}');
+      if (s.theme === 'light' || s.theme === 'dark') document.documentElement.dataset.theme = s.theme;
+    } catch (e) {}
+  </script>
+</head>
+<body data-mode="focus">
+  <header class="topbar">
+    <div class="brand">
+      <img src="icons/icon.svg" alt="" width="30" height="30">
+      <span>Focus Flow</span>
+    </div>
+    <button id="settingsBtn" class="icon-btn" type="button" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.6 7.6 0 0 0 1.7-1l2.5 1 2-3.5L19.4 13ZM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" transform="translate(-1 0)"/></svg>
+    </button>
+  </header>
+
+  <main class="layout">
+    <!-- ── Timer ─────────────────────────────────────────── -->
+    <section class="card timer-card" aria-label="Timer">
+      <div class="mode-tabs" role="group" aria-label="Timer mode">
+        <button type="button" class="mode-tab" data-mode="focus">Focus</button>
+        <button type="button" class="mode-tab" data-mode="short">Short break</button>
+        <button type="button" class="mode-tab" data-mode="long">Long break</button>
+      </div>
+
+      <div id="ringWrap" class="ring-wrap">
+        <svg class="ring" viewBox="0 0 300 300" aria-hidden="true">
+          <circle class="ring-track" cx="150" cy="150" r="136"/>
+          <circle id="ringProgress" class="ring-progress" cx="150" cy="150" r="136"/>
+        </svg>
+        <div class="ring-center">
+          <div id="time" class="time" role="timer">25:00</div>
+          <div id="modeLabel" class="mode-label">Focus</div>
+        </div>
+      </div>
+
+      <p id="currentTask" class="current-task"></p>
+
+      <div class="controls">
+        <button id="resetBtn" class="ctrl secondary" type="button" aria-label="Reset timer" title="Reset (R)">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z"/></svg>
+        </button>
+        <button id="startBtn" class="ctrl primary" type="button">Start</button>
+        <button id="skipBtn" class="ctrl secondary" type="button" aria-label="Skip to next session" title="Skip (S)">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M6 6v12l8.5-6L6 6Zm10 0v12h2V6h-2Z"/></svg>
+        </button>
+      </div>
+
+      <div class="cycle">
+        <div id="dots" class="dots" aria-hidden="true"></div>
+        <span id="cycleText" class="cycle-text"></span>
+      </div>
+
+      <p id="motivation" class="motivation"></p>
+      <p class="shortcuts">Keyboard: <kbd>Space</kbd> start/pause · <kbd>R</kbd> reset · <kbd>S</kbd> skip · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> modes</p>
+    </section>
+
+    <!-- ── Tasks ─────────────────────────────────────────── -->
+    <section class="card tasks-card" aria-labelledby="tasksHeading">
+      <div class="card-head">
+        <h2 id="tasksHeading">Tasks</h2>
+        <button id="clearDoneBtn" class="text-btn" type="button">Clear finished</button>
+      </div>
+      <form id="taskForm" class="task-form">
+        <label class="visually-hidden" for="taskInput">New task</label>
+        <input id="taskInput" type="text" maxlength="120" placeholder="What are you working on?" autocomplete="off" required>
+        <label class="est" title="Estimated pomodoros">
+          <span class="visually-hidden">Estimated pomodoros</span>
+          <span aria-hidden="true">🍅</span>
+          <input id="taskEst" type="number" min="1" max="20" value="1" inputmode="numeric">
+        </label>
+        <button class="btn" type="submit">Add</button>
+      </form>
+      <ul id="taskList" class="task-list"></ul>
+      <p id="taskEmpty" class="empty">No tasks yet. Add one, select it, and every finished focus session counts toward it.</p>
+    </section>
+
+    <!-- ── Stats ─────────────────────────────────────────── -->
+    <section class="card stats-card" aria-labelledby="statsHeading">
+      <div class="card-head">
+        <h2 id="statsHeading">Stats</h2>
+        <div class="head-actions">
+          <button id="exportBtn" class="text-btn" type="button">Export CSV</button>
+          <button id="clearHistoryBtn" class="text-btn danger" type="button">Clear history</button>
+        </div>
+      </div>
+
+      <div class="tiles">
+        <div class="tile"><div class="tile-label">Focus time today</div><div id="statToday" class="tile-value">0m</div></div>
+        <div class="tile"><div class="tile-label">Pomodoros today</div><div id="statCount" class="tile-value">0</div></div>
+        <div class="tile"><div class="tile-label">Day streak</div><div id="statStreak" class="tile-value">0</div></div>
+        <div class="tile"><div class="tile-label">All-time pomodoros</div><div id="statTotal" class="tile-value">0</div></div>
+      </div>
+
+      <div class="chart-head">
+        <h3>Focus time, last 7 days</h3>
+        <button id="tableToggle" class="text-btn" type="button" aria-pressed="false" aria-controls="chartTable">Show table</button>
+      </div>
+      <div id="chartWrap" class="chart-wrap">
+        <svg id="chart" class="chart" role="group" aria-label="Bar chart of focus minutes for the last 7 days"></svg>
+        <div id="tooltip" class="tooltip" hidden></div>
+      </div>
+      <table id="chartTable" class="data-table" hidden>
+        <thead><tr><th scope="col">Day</th><th scope="col" class="num">Focus time</th><th scope="col" class="num">Pomodoros</th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <h3 class="recent-heading">Recent sessions</h3>
+      <ul id="recentList" class="recent"></ul>
+    </section>
+  </main>
+
+  <footer class="footer">Focus Flow, built by Arhyel Odiba with Claude Code</footer>
+
+  <!-- ── Settings ────────────────────────────────────────── -->
+  <dialog id="settingsDialog" aria-labelledby="settingsHeading">
+    <form id="settingsForm" method="dialog">
+      <h2 id="settingsHeading">Settings</h2>
+
+      <fieldset>
+        <legend>Timer (minutes)</legend>
+        <label class="field-row">Focus <input name="focus" type="number" min="1" max="120" required></label>
+        <label class="field-row">Short break <input name="short" type="number" min="1" max="60" required></label>
+        <label class="field-row">Long break <input name="long" type="number" min="1" max="90" required></label>
+        <label class="field-row">Focus sessions before a long break <input name="longEvery" type="number" min="1" max="12" required></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Behavior</legend>
+        <label class="check-row"><input name="autoBreaks" type="checkbox"> Auto-start breaks</label>
+        <label class="check-row"><input name="autoFocus" type="checkbox"> Auto-start focus sessions</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Sound &amp; alerts</legend>
+        <label class="field-row">Alarm sound
+          <select name="sound">
+            <option value="bell">Bell</option>
+            <option value="chime">Chime</option>
+            <option value="digital">Digital</option>
+            <option value="wood">Wood block</option>
+            <option value="none">None</option>
+          </select>
+        </label>
+        <div class="field-row">
+          <label for="volume">Volume</label>
+          <span class="inline">
+            <input id="volume" name="volume" type="range" min="0" max="1" step="0.05">
+            <button id="previewBtn" class="text-btn" type="button">Test</button>
+          </span>
+        </div>
+        <label class="check-row"><input name="notify" type="checkbox"> Desktop notifications when a session ends</label>
+        <p id="notifyHint" class="hint" hidden></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Appearance</legend>
+        <label class="field-row">Theme
+          <select name="theme">
+            <option value="system">Match system</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <div class="dialog-actions">
+        <button id="defaultsBtn" class="text-btn" type="button">Restore defaults</button>
+        <span class="spacer"></span>
+        <button class="btn ghost" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn" value="save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

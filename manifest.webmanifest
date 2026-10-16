@@ -1,0 +1,13 @@
+{
+  "name": "Focus Flow",
+  "short_name": "Focus Flow",
+  "description": "A Pomodoro timer with tasks, stats, sounds and notifications.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f3ed",
+  "theme_color": "#b7472a",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
